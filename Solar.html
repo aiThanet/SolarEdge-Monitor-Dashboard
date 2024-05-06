@@ -1,0 +1,344 @@
+<html>
+  <header>
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+      integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH"
+      crossorigin="anonymous"
+    />
+    <script
+      src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
+      integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
+      crossorigin="anonymous"
+    ></script>
+    <script
+      src="https://code.jquery.com/jquery-3.7.1.min.js"
+      integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo="
+      crossorigin="anonymous"
+    ></script>
+  </header>
+  <body>
+    <script>
+      const SITES = [
+        {
+          name: "SolarEdge METER1",
+          meter: "METER1",
+        },
+        {
+          name: "SolarEdge METER2",
+          meter: "METER2",
+        },
+      ];
+      const API_URL = "https://mathongapi.jpn.local";
+
+      setInterval(() => {
+        updatePowerFlow();
+      }, 2.5 * 1000);
+
+      setInterval(() => {
+        updateBenefit();
+      }, 3 * 60 * 1000);
+
+      const updatePowerFlow = () => {
+        SITES.forEach((site) => {
+          const meter = site.meter;
+          //call api
+          $.ajax({
+            url: `${API_URL}/solar/current?site=${meter}`,
+            type: "GET",
+            contentType: "application/json",
+            success: function (data) {
+              const siteCurrentPowerFlow = data.siteCurrentPowerFlow;
+              //update html
+              $(`div#${meter} #PV_VAL`).html(
+                siteCurrentPowerFlow.PV.currentPower + " kW"
+              );
+              $(`div#${meter} #LOAD_VAL`).html(
+                siteCurrentPowerFlow.LOAD.currentPower + " kW"
+              );
+              $(`div#${meter} #GRID_VAL`).html(
+                siteCurrentPowerFlow.GRID.currentPower + " kW"
+              );
+              siteCurrentPowerFlow.connections.forEach((con) => {
+                const from = con.from.toLowerCase();
+                const to = con.to.toLowerCase();
+
+                if (from === "pv" && to === "load") {
+                  $(`div#${meter} #PV_LOAD`).attr("src", "./Right.svg");
+                } else if (from === "load" && to === "pv") {
+                  $(`div#${meter} #PV_LOAD`).attr("src", "./Left.svg");
+                } else if (from === "load" && to === "grid") {
+                  $(`div#${meter} #LOAD_GRID`).attr("src", "./Right.svg");
+                } else if (from === "grid" && to === "load") {
+                  $(`div#${meter} #LOAD_GRID`).attr("src", "./Left.svg");
+                }
+              });
+            },
+          });
+        });
+      };
+
+      const updateBenefit = () => {
+        SITES.forEach((site) => {
+          const meter = site.meter;
+          //call api
+          $.ajax({
+            url: `${API_URL}/solar/benefit?site=${meter}`,
+            type: "GET",
+            contentType: "application/json",
+            success: function (data) {
+              const envBenefits = data.envBenefits;
+              //update html
+              $(`div#${meter} #SE_CO2`).html(
+                envBenefits.gasEmissionSaved.co2.toFixed(2) +
+                  " " +
+                  envBenefits.gasEmissionSaved.units
+              );
+              $(`div#${meter} #SE_TREE`).html(
+                envBenefits.treesPlanted.toFixed(2) + " ต้น"
+              );
+            },
+          });
+        });
+      };
+
+      updatePowerFlow();
+      updateBenefit();
+    </script>
+
+    <div class="container-fluid text-center mx-3">
+      <div class="row">
+        <div class="col-12 my-3" id="METER1">
+          <div class="container-fluid text-center">
+            <div class="row">
+              <h2 class="my-3">METER1: โรงงาน (เริ่ม 01/04/67)</h2>
+            </div>
+            <div class="row">
+              <div class="col-8 mx-3">
+                <div class="row" style="position: relative">
+                  <div
+                    class="col-4 border border-dark-subtle"
+                    style="height: 300px"
+                  >
+                    <h2 class="mt-2" id="PV_VAL">0 kW</h2>
+                    <img
+                      src="./PV.svg"
+                      class="img-fluid"
+                      alt="PV"
+                      style="width: 75%; max-width: 150px"
+                    />
+                  </div>
+                  <img
+                    src="./Right.svg"
+                    class="px-0"
+                    alt="Right"
+                    style="
+                      position: absolute;
+                      top: 50%;
+                      left: 33.33%;
+                      width: 56px;
+                      height: 56px;
+                      transform: translate(-50%, -50%);
+                    "
+                    id="PV_LOAD"
+                  />
+                  <div
+                    class="col-4 border border-dark-subtle"
+                    style="height: 300px"
+                  >
+                    <h2 class="mt-2" id="LOAD_VAL">0 kW</h2>
+                    <img
+                      src="./Load.svg"
+                      class="img-fluid"
+                      alt="Load"
+                      style="width: 75%; max-width: 150px"
+                    />
+                  </div>
+                  <img
+                    src="./Right.svg"
+                    class="px-0"
+                    alt="Right"
+                    style="
+                      position: absolute;
+                      top: 50%;
+                      left: 66.66%;
+                      width: 56px;
+                      height: 56px;
+                      transform: translate(-50%, -50%);
+                    "
+                    id="LOAD_GRID"
+                  />
+                  <div
+                    class="col-4 border border-dark-subtle"
+                    style="height: 300px"
+                  >
+                    <h2 class="mt-2" id="GRID_VAL">0 kW</h2>
+                    <img
+                      src="./Grid.svg"
+                      class="img-fluid"
+                      alt="Grid"
+                      style="width: 75%; max-width: 150px"
+                    />
+                  </div>
+                </div>
+              </div>
+              <div class="col-3 mx-3">
+                <div class="row text-start">
+                  <div class="col-12 bg-success border border-dark-subtle">
+                    <h3 class="mt-2 px-2 text-white text-center">
+                      ช่วยรักษาสิ่งแวดล้อม
+                    </h3>
+                  </div>
+                  <div class="col-12 border border-dark-subtle d-flex">
+                    <div>
+                      <img
+                        src="./se-co2-icon.png"
+                        class="img-fluid"
+                        alt="se-co2"
+                        style="width: 90px; height: 90px"
+                      />
+                    </div>
+                    <div class="d-flex flex-column align-self-center ms-2">
+                      <h5>ลดการปล่อย CO2</h5>
+                      <h4 class="fw-bold text-success" id="SE_CO2">0 kg</h4>
+                    </div>
+                  </div>
+                  <div class="col-12 border border-dark-subtle d-flex">
+                    <div>
+                      <img
+                        src="./se-tree-icon.png"
+                        class="img-fluid"
+                        alt="se-tree"
+                        style="width: 90px; height: 90px"
+                      />
+                    </div>
+                    <div class="d-flex flex-column align-self-center ms-2">
+                      <h5>เทียบเท่ากับปลูกต้นไม้</h5>
+                      <h4 class="fw-bold text-success" id="SE_TREE">0 ต้น</h4>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="col-12 my-3" id="METER2">
+          <div class="container-fluid text-center">
+            <div class="row">
+              <h2 class="my-3">
+                METER2: ออฟฟิต ตัวบ้าน หอพัก (เริ่ม 01/04/67)
+              </h2>
+            </div>
+            <div class="row">
+              <div class="col-8 mx-3">
+                <div class="row" style="position: relative">
+                  <div
+                    class="col-4 border border-dark-subtle"
+                    style="height: 300px"
+                  >
+                    <h2 class="mt-2" id="PV_VAL">0 kW</h2>
+                    <img
+                      src="./PV.svg"
+                      class="img-fluid"
+                      alt="PV"
+                      style="width: 75%; max-width: 150px"
+                    />
+                  </div>
+                  <img
+                    src="./Right.svg"
+                    class="px-0"
+                    alt="Right"
+                    style="
+                      position: absolute;
+                      top: 50%;
+                      left: 33.33%;
+                      width: 56px;
+                      height: 56px;
+                      transform: translate(-50%, -50%);
+                    "
+                    id="PV_LOAD"
+                  />
+                  <div
+                    class="col-4 border border-dark-subtle"
+                    style="height: 300px"
+                  >
+                    <h2 class="mt-2" id="LOAD_VAL">0 kW</h2>
+                    <img
+                      src="./Load.svg"
+                      class="img-fluid"
+                      alt="Load"
+                      style="width: 75%; max-width: 150px"
+                    />
+                  </div>
+                  <img
+                    src="./Right.svg"
+                    class="px-0"
+                    alt="Right"
+                    style="
+                      position: absolute;
+                      top: 50%;
+                      left: 66.66%;
+                      width: 56px;
+                      height: 56px;
+                      transform: translate(-50%, -50%);
+                    "
+                    id="LOAD_GRID"
+                  />
+                  <div
+                    class="col-4 border border-dark-subtle"
+                    style="height: 300px"
+                  >
+                    <h2 class="mt-2" id="GRID_VAL">0 kW</h2>
+                    <img
+                      src="./Grid.svg"
+                      class="img-fluid"
+                      alt="Grid"
+                      style="width: 75%; max-width: 150px"
+                    />
+                  </div>
+                </div>
+              </div>
+              <div class="col-3 mx-3">
+                <div class="row text-start">
+                  <div class="col-12 bg-success border border-dark-subtle">
+                    <h3 class="mt-2 px-2 text-white text-center">
+                      ช่วยรักษาสิ่งแวดล้อม
+                    </h3>
+                  </div>
+                  <div class="col-12 border border-dark-subtle d-flex">
+                    <div>
+                      <img
+                        src="./se-co2-icon.png"
+                        class="img-fluid"
+                        alt="se-co2"
+                        style="width: 90px; height: 90px"
+                      />
+                    </div>
+                    <div class="d-flex flex-column align-self-center ms-2">
+                      <h5>ลดการปล่อย CO2</h5>
+                      <h4 class="fw-bold text-success" id="SE_CO2">0 kg</h4>
+                    </div>
+                  </div>
+                  <div class="col-12 border border-dark-subtle d-flex">
+                    <div>
+                      <img
+                        src="./se-tree-icon.png"
+                        class="img-fluid"
+                        alt="se-tree"
+                        style="width: 90px; height: 90px"
+                      />
+                    </div>
+                    <div class="d-flex flex-column align-self-center ms-2">
+                      <h5>เทียบเท่ากับปลูกต้นไม้</h5>
+                      <h4 class="fw-bold text-success" id="SE_TREE">0 ต้น</h4>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>
