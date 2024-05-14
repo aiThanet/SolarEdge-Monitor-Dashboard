@@ -32,6 +32,7 @@
       }
     </style>
   </head>
+
   <body>
     <script>
       const SITES = [
@@ -51,6 +52,7 @@
       const consumption_txt = "ปริมาณใช้ไฟฟ้า";
       const production_txt = "พลังงานแสงอาทิตย์ผลิต(วันนี้)";
       const yesterday_production_txt = "พลังงานแสงอาทิตย์ผลิต(เมื่อวาน)";
+      const start_date = "2024-04-03";
 
       setInterval(() => {
         updatePowerFlow();
@@ -63,6 +65,10 @@
       setInterval(() => {
         updateBenefit();
       }, 30 * 60 * 1000);
+
+      setInterval(() => {
+        updateProduction();
+      }, 5 * 60 * 1000);
 
       const updatePowerFlow = () => {
         SITES.forEach((site) => {
@@ -113,12 +119,13 @@
             contentType: "application/json",
             success: function (data) {
               const envBenefits = data.envBenefits;
+              const co2 = envBenefits.gasEmissionSaved.co2;
+              const co2_txt =
+                co2 > 1000
+                  ? (co2 / 1000).toFixed(2) + " ตัน"
+                  : co2.toFixed(2) + " กก.";
               //update html
-              $(`div#${meter} #SE_CO2`).html(
-                envBenefits.gasEmissionSaved.co2.toFixed(2) +
-                  " " +
-                  envBenefits.gasEmissionSaved.units
-              );
+              $(`div#${meter} #SE_CO2`).html(co2_txt);
               $(`div#${meter} #SE_TREE`).html(
                 envBenefits.treesPlanted.toFixed(2) + " ต้น"
               );
@@ -137,25 +144,32 @@
 
           const end_time = moment().endOf("day").format("YYYY-MM-DD HH:mm:ss");
 
-          const yesterday_start_time = moment().subtract(1, "days").startOf("day").format("YYYY-MM-DD HH:mm:ss");
-          const yesterday_end_time = moment().subtract(1, "days").endOf("day").format("YYYY-MM-DD HH:mm:ss");
+          const yesterday_start_time = moment()
+            .subtract(1, "days")
+            .startOf("day")
+            .format("YYYY-MM-DD HH:mm:ss");
+          const yesterday_end_time = moment()
+            .subtract(1, "days")
+            .endOf("day")
+            .format("YYYY-MM-DD HH:mm:ss");
 
           const yesterday_data = await $.ajax({
             url: `${API_URL}/solar/powerDetails?site=${meter}&start_time=${yesterday_start_time}&end_time=${yesterday_end_time}`,
             type: "GET",
             contentType: "application/json",
-          })
+          });
 
           const powerDetails = yesterday_data.powerDetails;
           const meters = powerDetails.meters;
           let yesterday_production = [];
           meters.forEach((meter) => {
             if (meter.type == "Production") {
-              yesterday_production = meter.values.map((data) => data.value || 0);
+              yesterday_production = meter.values.map(
+                (data) => data.value || 0
+              );
             }
           });
 
-          
           //call api
           $.ajax({
             url: `${API_URL}/solar/powerDetails?site=${meter}&start_time=${start_time}&end_time=${end_time}`,
@@ -190,7 +204,7 @@
                   },
                 },
                 title: {
-                  text: `Power and Energy ${meter}`,
+                  text: `Power and Energy Chart`,
                 },
                 tooltip: {
                   shared: true,
@@ -199,17 +213,22 @@
                   useHTML: true,
                   formatter: function () {
                     return this.points.reduce(function (s, point) {
+                      const y = point.y;
+                      const y_txt =
+                        y > 1000000
+                          ? (y / 1000000).toFixed(2) + " MWh"
+                          : (y / 1000).toFixed(2) + " kWh";
                       return (
                         s +
-                        "<div style='width: 250px' class='d-flex justify-content-between'> <div><span class='" +
+                        "<div style='width: 350px' class='d-flex justify-content-between'> <div><span class='" +
                         (point.series.name == production_txt
                           ? "text-success"
                           : "text-danger") +
                         "'>■ </span>" +
                         point.series.name +
                         "</div><div class='fw-bold'>" +
-                        (point.y / 1000).toFixed(2) +
-                        " kW</div></div>"
+                        y_txt +
+                        "</div></div>"
                       );
                     }, "<div class='mb-3 fw-bold'> Power Overview - " +
                       this.x +
@@ -246,49 +265,90 @@
                   },
                   line: {
                     lineWidth: 3,
-                  }
+                  },
                 },
                 series: [
                   {
                     name: consumption_txt,
                     data: consumption,
                     color: "rgba(237,51,51,0.7)",
-                    type: 'area'
+                    type: "area",
                   },
                   {
                     name: production_txt,
                     data: production,
                     color: "rgba(0,176,80,0.7)",
-                    type: 'area'
+                    type: "area",
                   },
                   {
                     name: yesterday_production_txt,
                     data: yesterday_production,
                     color: "rgba(255, 165, 0,0.7)",
-                    type: 'line'
-                  }
+                    type: "line",
+                  },
                 ],
               });
             },
           });
         });
       };
+
+      const updateProduction = () => {
+        SITES.forEach((site) => {
+          const meter = site.meter;
+          const todayDate = moment().format("YYYY-MM-DD");
+          const tomorrowDate = moment().add(1, "days").format("YYYY-MM-DD");
+          //call api
+          $.ajax({
+            url: `${API_URL}/solar/energy?site=${meter}&start_date=${todayDate}&end_date=${todayDate}&time_unit=DAY`,
+            type: "GET",
+            contentType: "application/json",
+            success: function (data) {
+              const todayProduction = data.energy.values[0].value;
+              const todayProd =
+                todayProduction > 1000000
+                  ? (todayProduction / 1000000).toFixed(2) + " MWh"
+                  : (todayProduction / 1000).toFixed(2) + " kWh";
+              //update html
+              $(`div#${meter} #TODAY_PROD`).html(todayProd);
+            },
+          });
+
+          $.ajax({
+            url: `${API_URL}/solar/energy/timeframe?site=${meter}&start_date=${start_date}&end_date=${tomorrowDate}`,
+            type: "GET",
+            contentType: "application/json",
+            success: function (data) {
+              const lifetimeProduction =
+                data.timeFrameEnergy.endLifetimeEnergy.energy;
+              const lifetimeProd =
+                lifetimeProduction > 1000000
+                  ? (lifetimeProduction / 1000000).toFixed(2) + " MWh"
+                  : (lifetimeProduction / 1000).toFixed(2) + " kWh";
+              //update html
+              $(`div#${meter} #LIFETIME_PROD`).html(lifetimeProd);
+            },
+          });
+        });
+      };
+
       updatePowerFlow();
       updateBenefit();
       updateChart();
+      updateProduction();
     </script>
     <h3 class="fw-bold py-2 mb-0 bg-success text-center text-white">
       ปริมาณการใช้และการผลิตไฟฟ้า ประจำวันที่ <span id="today"></span>
     </h3>
-    <div class="container-fluid text-center mx-3">
+    <div class="container-fluid text-center">
       <div class="row">
-        <div class="col-12" id="METER1">
+        <div class="col-6 border-end border-success-subtle" id="METER1">
           <div class="container-fluid text-center">
             <div class="row">
-              <h4 class="fw-bold mt-2 mb-1">SITE1 (70.4kWp): โรงทอ ชั้น1/2 <span class="fs-6 text">(เริ่ม 03/04/67)</span></h4>
+              <h4 class="fw-bold mt-2 mb-1">SITE1 (70.4kWp): โรงทอ ชั้น1/2</h4>
             </div>
             <div class="row">
-              <div class="col-7 mx-3">
+              <div class="col-12">
                 <div class="row" style="position: relative">
                   <div
                     class="col-4 border border-dark-subtle"
@@ -299,7 +359,7 @@
                       src="./PV.svg"
                       class="img-fluid"
                       alt="PV"
-                      style="width: 80px;"
+                      style="width: 80px"
                     />
                   </div>
                   <img
@@ -325,7 +385,7 @@
                       src="./Load.svg"
                       class="img-fluid"
                       alt="Load"
-                      style="width: 80px;"
+                      style="width: 80px"
                     />
                   </div>
                   <img
@@ -351,60 +411,117 @@
                       src="./Grid.svg"
                       class="img-fluid"
                       alt="Grid"
-                      style="width: 80px;"
+                      style="width: 80px"
                     />
                   </div>
                 </div>
               </div>
-              <div class="col-4 mx-3">
+              <div class="col-12 mt-3">
                 <div class="row text-start">
-                  <div class="col-12 bg-success border border-dark-subtle">
-                    <h5 class="my-1 px-2 text-white text-center">
-                      ช่วยรักษาสิ่งแวดล้อม
-                    </h4=5>
+                  <div class="col-6">
+                    <div class="row">
+                      <div class="col-12 bg-success border border-dark-subtle">
+                        <h5 class="my-1 px-2 text-white text-center">
+                          ปริมาณการผลิต
+                        </h5>
+                      </div>
+                      <div class="col-12 border border-dark-subtle d-flex">
+                        <div class="d-flex align-self-center">
+                          <img
+                            src="./calendar-today-outline.svg"
+                            class="img-fluid"
+                            alt="today-prod"
+                            style="width: 40px; height: 40px"
+                          />
+                        </div>
+                        <div class="d-flex flex-column align-self-center ms-2">
+                          <h6 class="mt-1 mb-0">ผลิตผลของวันนี้</h6>
+                          <h5 class="mb-1 fw-bold text-success" id="TODAY_PROD">
+                            0 kWh
+                          </h5>
+                        </div>
+                      </div>
+                      <div class="col-12 border border-dark-subtle d-flex">
+                        <div class="d-flex align-self-center">
+                          <img
+                            src="./all-inclusive-box.svg"
+                            class="img-fluid"
+                            alt="life-time-prod"
+                            style="width: 40px; height: 40px"
+                          />
+                        </div>
+                        <div class="d-flex flex-column align-self-center ms-2">
+                          <h6 class="mt-1 mb-0">ผลิตผลทั้งหมด</h6>
+                          <h5
+                            class="mb-1 fw-bold text-success"
+                            id="LIFETIME_PROD"
+                          >
+                            0 kWh
+                          </h5>
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                  <div class="col-12 border border-dark-subtle d-flex">
-                    <div>
-                      <img
-                        src="./se-co2-icon.png"
-                        class="img-fluid"
-                        alt="se-co2"
-                        style="width: 50px; height: 50px"
-                      />
-                    </div>
-                    <div class="d-flex flex-column align-self-center ms-2">
-                      <h6 class="mt-1 mb-0">ลดการปล่อย CO2</h6>
-                      <h5 class="mb-1 fw-bold text-success" id="SE_CO2">0 kg</h5>
-                    </div>
-                  </div>
-                  <div class="col-12 border border-dark-subtle d-flex">
-                    <div>
-                      <img
-                        src="./se-tree-icon.png"
-                        class="img-fluid"
-                        alt="se-tree"
-                        style="width: 50px; height: 50px"
-                      />
-                    </div>
-                    <div class="d-flex flex-column align-self-center ms-2">
-                      <h6 class="mt-1 mb-0">เทียบเท่ากับปลูกต้นไม้</h6>
-                      <h5 class="mb-1 fw-bold text-success" id="SE_TREE">0 ต้น</h5>
+                  <div class="col-6">
+                    <div class="row">
+                      <div class="col-12 bg-success border border-dark-subtle">
+                        <h5 class="my-1 px-2 text-white text-center">
+                          ช่วยรักษาสิ่งแวดล้อม
+                        </h5>
+                      </div>
+                      <div class="col-12 border border-dark-subtle d-flex">
+                        <div>
+                          <img
+                            src="./se-co2-icon.png"
+                            class="img-fluid"
+                            alt="se-co2"
+                            style="width: 50px; height: 50px"
+                          />
+                        </div>
+                        <div class="d-flex flex-column align-self-center ms-2">
+                          <h6 class="mt-1 mb-0">ลดการปล่อย CO2</h6>
+                          <h5 class="mb-1 fw-bold text-success" id="SE_CO2">
+                            0 kg
+                          </h5>
+                        </div>
+                      </div>
+                      <div class="col-12 border border-dark-subtle d-flex">
+                        <div>
+                          <img
+                            src="./se-tree-icon.png"
+                            class="img-fluid"
+                            alt="se-tree"
+                            style="width: 50px; height: 50px"
+                          />
+                        </div>
+                        <div class="d-flex flex-column align-self-center ms-2">
+                          <h6 class="mt-1 mb-0">เทียบเท่ากับปลูกต้นไม้</h6>
+                          <h5 class="mb-1 fw-bold text-success" id="SE_TREE">
+                            0 ต้น
+                          </h5>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
             </div>
+            <div class="row mt-3">
+              <div class="col-12">
+                <div id="METER1-chart" style="width: 100%; height: 350px"></div>
+              </div>
+            </div>
           </div>
         </div>
-        <div class="col-12" id="METER2">
+        <div class="col-6" id="METER2">
           <div class="container-fluid text-center">
             <div class="row">
               <h4 class="fw-bold mt-2 mb-1">
-                SITE2 (70.4kWp) : ออฟฟิต ตัวบ้าน ปั๊มลม <span class="fs-6 text">(เริ่ม 03/04/67)</span>
+                SITE2 (70.4kWp) : ออฟฟิต ตัวบ้าน ปั๊มลม
               </h4>
             </div>
             <div class="row">
-              <div class="col-7 mx-3">
+              <div class="col-12">
                 <div class="row" style="position: relative">
                   <div
                     class="col-4 border border-dark-subtle"
@@ -415,7 +532,7 @@
                       src="./PV.svg"
                       class="img-fluid"
                       alt="PV"
-                      style="width: 80px;"
+                      style="width: 80px"
                     />
                   </div>
                   <img
@@ -441,7 +558,7 @@
                       src="./Load.svg"
                       class="img-fluid"
                       alt="Load"
-                      style="width: 80px;"
+                      style="width: 80px"
                     />
                   </div>
                   <img
@@ -467,59 +584,107 @@
                       src="./Grid.svg"
                       class="img-fluid"
                       alt="Grid"
-                      style="width: 80px;"
+                      style="width: 80px"
                     />
                   </div>
                 </div>
               </div>
-              <div class="col-4 mx-3">
+              <div class="col-12 mt-3">
                 <div class="row text-start">
-                  <div class="col-12 bg-success border border-dark-subtle">
-                    <h5 class="my-1 px-2 text-white text-center">
-                      ช่วยรักษาสิ่งแวดล้อม
-                    </h5>
+                  <div class="col-6">
+                    <div class="row">
+                      <div class="col-12 bg-success border border-dark-subtle">
+                        <h5 class="my-1 px-2 text-white text-center">
+                          ปริมาณการผลิต
+                        </h5>
+                      </div>
+                      <div class="col-12 border border-dark-subtle d-flex">
+                        <div class="d-flex align-self-center">
+                          <img
+                            src="./calendar-today-outline.svg"
+                            class="img-fluid"
+                            alt="today-prod"
+                            style="width: 40px; height: 40px"
+                          />
+                        </div>
+                        <div class="d-flex flex-column align-self-center ms-2">
+                          <h6 class="mt-1 mb-0">ผลิตผลของวันนี้</h6>
+                          <h5 class="mb-1 fw-bold text-success" id="TODAY_PROD">
+                            0 kWh
+                          </h5>
+                        </div>
+                      </div>
+                      <div class="col-12 border border-dark-subtle d-flex">
+                        <div class="d-flex align-self-center">
+                          <img
+                            src="./all-inclusive-box.svg"
+                            class="img-fluid"
+                            alt="life-time-prod"
+                            style="width: 40px; height: 40px"
+                          />
+                        </div>
+                        <div class="d-flex flex-column align-self-center ms-2">
+                          <h6 class="mt-1 mb-0">ผลิตผลทั้งหมด</h6>
+                          <h5
+                            class="mb-1 fw-bold text-success"
+                            id="LIFETIME_PROD"
+                          >
+                            0 kWh
+                          </h5>
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                  <div class="col-12 border border-dark-subtle d-flex">
-                    <div>
-                      <img
-                        src="./se-co2-icon.png"
-                        class="img-fluid"
-                        alt="se-co2"
-                        style="width: 50px; height: 50px"
-                      />
-                    </div>
-                    <div class="d-flex flex-column align-self-center ms-2">
-                      <h6 class="mt-1 mb-0">ลดการปล่อย CO2</h6>
-                      <h5 class="mb-1 fw-bold text-success" id="SE_CO2">0 kg</h5>
-                    </div>
-                  </div>
-                  <div class="col-12 border border-dark-subtle d-flex">
-                    <div>
-                      <img
-                        src="./se-tree-icon.png"
-                        class="img-fluid"
-                        alt="se-tree"
-                        style="width: 50px; height: 50px"
-                      />
-                    </div>
-                    <div class="d-flex flex-column align-self-center ms-2">
-                      <h6 class="mt-1 mb-0">เทียบเท่ากับปลูกต้นไม้</h6>
-                      <h5 class="mb-1 fw-bold text-success" id="SE_TREE">0 ต้น</h5>
+                  <div class="col-6">
+                    <div class="row">
+                      <div class="col-12 bg-success border border-dark-subtle">
+                        <h5 class="my-1 px-2 text-white text-center">
+                          ช่วยรักษาสิ่งแวดล้อม
+                        </h5>
+                      </div>
+                      <div class="col-12 border border-dark-subtle d-flex">
+                        <div>
+                          <img
+                            src="./se-co2-icon.png"
+                            class="img-fluid"
+                            alt="se-co2"
+                            style="width: 50px; height: 50px"
+                          />
+                        </div>
+                        <div class="d-flex flex-column align-self-center ms-2">
+                          <h6 class="mt-1 mb-0">ลดการปล่อย CO2</h6>
+                          <h5 class="mb-1 fw-bold text-success" id="SE_CO2">
+                            0 kg
+                          </h5>
+                        </div>
+                      </div>
+                      <div class="col-12 border border-dark-subtle d-flex">
+                        <div>
+                          <img
+                            src="./se-tree-icon.png"
+                            class="img-fluid"
+                            alt="se-tree"
+                            style="width: 50px; height: 50px"
+                          />
+                        </div>
+                        <div class="d-flex flex-column align-self-center ms-2">
+                          <h6 class="mt-1 mb-0">เทียบเท่ากับปลูกต้นไม้</h6>
+                          <h5 class="mb-1 fw-bold text-success" id="SE_TREE">
+                            0 ต้น
+                          </h5>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
             </div>
+            <div class="row mt-3">
+              <div class="col-12">
+                <div id="METER2-chart" style="width: 100%; height: 350px"></div>
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
-
-      <div class="row mt-3">
-        <div class="col-6">
-          <div id="METER1-chart" style="width: 100%; height: 350px"></div>
-        </div>
-        <div class="col-6">
-          <div id="METER2-chart" style="width: 100%; height: 350px"></div>
         </div>
       </div>
     </div>
