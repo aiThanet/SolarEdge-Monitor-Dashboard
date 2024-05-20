@@ -40,15 +40,20 @@
           name: "SolarEdge METER1",
           meter: "METER1",
           chart: null,
+          siteId: "4203327",
+          apiKey: "FRXDV6ZQWIG3P9C47J3O7Y8CV4EZCG4A",
         },
         {
           name: "SolarEdge METER2",
           meter: "METER2",
           chart: null,
+          siteId: "4203330",
+          apiKey: "PRDT3LCPZ9A4WUPR187RY4W5KTCJV6W9",
         },
       ];
       const API_URL = "http://mathongapi.jpn.local";
       // const API_URL = "http://localhost:3100";
+      const SOLAR_ARI_URL = "https://monitoringapi.solaredge.com/site";
       const consumption_txt = "ปริมาณใช้ไฟฟ้า";
       const production_txt = "พลังงานแสงอาทิตย์ผลิต(วันนี้)";
       const yesterday_production_txt = "พลังงานแสงอาทิตย์ผลิต(เมื่อวาน)";
@@ -56,7 +61,7 @@
 
       setInterval(() => {
         updatePowerFlow();
-      }, 5 * 1000);
+      }, 10 * 1000);
 
       setInterval(() => {
         updateChart();
@@ -68,15 +73,16 @@
 
       setInterval(() => {
         updateProduction();
-      }, 5 * 60 * 1000);
+      }, 10 * 60 * 1000);
 
       const updatePowerFlow = () => {
         SITES.forEach((site) => {
           const meter = site.meter;
           //call api
           $.ajax({
-            url: `${API_URL}/solar/current?site=${meter}`,
+            url: `${SOLAR_ARI_URL}/${site.siteId}/currentPowerFlow?api_key=${site.apiKey}`,
             type: "GET",
+            dataType: "jsonp",
             contentType: "application/json",
             success: function (data) {
               const siteCurrentPowerFlow = data.siteCurrentPowerFlow;
@@ -114,8 +120,9 @@
           const meter = site.meter;
           //call api
           $.ajax({
-            url: `${API_URL}/solar/benefit?site=${meter}`,
+            url: `${SOLAR_ARI_URL}/${site.siteId}/envBenefits?api_key=${site.apiKey}&systemUnits=Metrics`,
             type: "GET",
+            dataType: "jsonp",
             contentType: "application/json",
             success: function (data) {
               const envBenefits = data.envBenefits;
@@ -154,9 +161,10 @@
             .format("YYYY-MM-DD HH:mm:ss");
 
           const yesterday_data = await $.ajax({
-            url: `${API_URL}/solar/powerDetails?site=${meter}&start_time=${yesterday_start_time}&end_time=${yesterday_end_time}`,
+            url: `${SOLAR_ARI_URL}/${site.siteId}/powerDetails?api_key=${site.apiKey}&startTime=${yesterday_start_time}&endTime=${yesterday_end_time}`,
             type: "GET",
             contentType: "application/json",
+            dataType: "jsonp",
           });
 
           const powerDetails = yesterday_data.powerDetails;
@@ -172,9 +180,10 @@
 
           //call api
           $.ajax({
-            url: `${API_URL}/solar/powerDetails?site=${meter}&start_time=${start_time}&end_time=${end_time}`,
+            url: `${SOLAR_ARI_URL}/${site.siteId}/powerDetails?api_key=${site.apiKey}&startTime=${start_time}&endTime=${end_time}`,
             type: "GET",
             contentType: "application/json",
+            dataType: "jsonp",
             success: function (data) {
               const powerDetails = data.powerDetails;
               const unit = powerDetails.unit.toUpperCase();
@@ -300,9 +309,10 @@
           const tomorrowDate = moment().add(1, "days").format("YYYY-MM-DD");
           //call api
           $.ajax({
-            url: `${API_URL}/solar/energy?site=${meter}&start_date=${todayDate}&end_date=${todayDate}&time_unit=DAY`,
+            url: `${SOLAR_ARI_URL}/${site.siteId}/energy?api_key=${site.apiKey}&startDate=${todayDate}&endDate=${todayDate}&timeUnit=DAY`,
             type: "GET",
             contentType: "application/json",
+            dataType: "jsonp",
             success: function (data) {
               const todayProduction = data.energy.values[0].value;
               const todayProd =
@@ -315,9 +325,10 @@
           });
 
           $.ajax({
-            url: `${API_URL}/solar/energy/timeframe?site=${meter}&start_date=${start_date}&end_date=${tomorrowDate}`,
+            url: `${SOLAR_ARI_URL}/${site.siteId}/timeFrameEnergy?api_key=${site.apiKey}&startDate=${start_date}&endDate=${tomorrowDate}`,
             type: "GET",
             contentType: "application/json",
+            dataType: "jsonp",
             success: function (data) {
               const lifetimeProduction =
                 data.timeFrameEnergy.endLifetimeEnergy.energy;
