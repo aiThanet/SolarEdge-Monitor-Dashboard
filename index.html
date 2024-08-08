@@ -41,6 +41,7 @@
           apiKey: "PRDT3LCPZ9A4WUPR187RY4W5KTCJV6W9",
         },
       ];
+      const IS_LOCAL_API = true;
       const API_URL = "http://mathongapi.jpn.local";
       // const API_URL = "http://localhost:3100";
       const SOLAR_ARI_URL = "https://monitoringapi.solaredge.com/site";
@@ -69,10 +70,12 @@
         SITES.forEach((site) => {
           const meter = site.meter;
           //call api
-          $.ajax({
-            url: `${SOLAR_ARI_URL}/${site.siteId}/currentPowerFlow?api_key=${site.apiKey}`,
+          const apiUrl = IS_LOCAL_API
+            ? `${API_URL}/solar/current?site=${meter}`
+            : `${SOLAR_ARI_URL}/${site.siteId}/currentPowerFlow?api_key=${site.apiKey}`;
+          const options = {
+            url: apiUrl,
             type: "GET",
-            dataType: "jsonp",
             contentType: "application/json",
             success: function (data) {
               const siteCurrentPowerFlow = data.siteCurrentPowerFlow;
@@ -101,7 +104,11 @@
                 }
               });
             },
-          });
+          };
+          if (!IS_LOCAL_API) {
+            options.dataType = "jsonp";
+          }
+          $.ajax(options);
         });
       };
 
@@ -109,10 +116,12 @@
         SITES.forEach((site) => {
           const meter = site.meter;
           //call api
-          $.ajax({
-            url: `${SOLAR_ARI_URL}/${site.siteId}/envBenefits?api_key=${site.apiKey}&systemUnits=Metrics`,
+          const apiUrl = IS_LOCAL_API
+            ? `${API_URL}/solar/benefit?site=${meter}`
+            : `${SOLAR_ARI_URL}/${site.siteId}/envBenefits?api_key=${site.apiKey}&systemUnits=Metrics`;
+          const options = {
+            url: apiUrl,
             type: "GET",
-            dataType: "jsonp",
             contentType: "application/json",
             success: function (data) {
               const envBenefits = data.envBenefits;
@@ -127,7 +136,11 @@
                 envBenefits.treesPlanted.toFixed(2) + " ต้น"
               );
             },
-          });
+          };
+          if (!IS_LOCAL_API) {
+            options.dataType = "jsonp";
+          }
+          $.ajax(options);
         });
       };
 
@@ -150,12 +163,18 @@
             .endOf("day")
             .format("YYYY-MM-DD HH:mm:ss");
 
-          const yesterday_data = await $.ajax({
-            url: `${SOLAR_ARI_URL}/${site.siteId}/powerDetails?api_key=${site.apiKey}&startTime=${yesterday_start_time}&endTime=${yesterday_end_time}`,
+          let apiUrl = IS_LOCAL_API
+            ? `${API_URL}/solar/powerDetails?site=${meter}&start_time=${yesterday_start_time}&end_time=${yesterday_end_time}`
+            : `${SOLAR_ARI_URL}/${site.siteId}/powerDetails?api_key=${site.apiKey}&startTime=${yesterday_start_time}&endTime=${yesterday_end_time}`;
+          let options = {
+            url: apiUrl,
             type: "GET",
             contentType: "application/json",
-            dataType: "jsonp",
-          });
+          };
+          if (!IS_LOCAL_API) {
+            options.dataType = "json";
+          }
+          const yesterday_data = await $.ajax(options);
 
           const powerDetails = yesterday_data.powerDetails;
           const meters = powerDetails.meters;
@@ -169,12 +188,15 @@
           });
 
           //call api
-          $.ajax({
-            url: `${SOLAR_ARI_URL}/${site.siteId}/powerDetails?api_key=${site.apiKey}&startTime=${start_time}&endTime=${end_time}`,
+          apiUrl = IS_LOCAL_API
+            ? `${API_URL}/solar/powerDetails?site=${meter}&start_time=${start_time}&end_time=${end_time}`
+            : `${SOLAR_ARI_URL}/${site.siteId}/powerDetails?api_key=${site.apiKey}&startTime=${start_time}&endTime=${end_time}`;
+          options = {
+            url: apiUrl,
             type: "GET",
             contentType: "application/json",
-            dataType: "jsonp",
             success: function (data) {
+              console.log("data", data);
               const powerDetails = data.powerDetails;
               const unit = powerDetails.unit.toUpperCase();
               const meters = powerDetails.meters;
@@ -288,7 +310,11 @@
                 ],
               });
             },
-          });
+          };
+          if (!IS_LOCAL_API) {
+            options.dataType = "json";
+          }
+          $.ajax(options);
         });
       };
 
@@ -298,11 +324,13 @@
           const todayDate = moment().format("YYYY-MM-DD");
           const tomorrowDate = moment().add(1, "days").format("YYYY-MM-DD");
           //call api
-          $.ajax({
-            url: `${SOLAR_ARI_URL}/${site.siteId}/energy?api_key=${site.apiKey}&startDate=${todayDate}&endDate=${todayDate}&timeUnit=DAY`,
+          let apiUrl = IS_LOCAL_API
+            ? `${API_URL}/solar/energy?site=${meter}&start_date=${todayDate}&end_date=${todayDate}&time_unit=DAY`
+            : `${SOLAR_ARI_URL}/${site.siteId}/energy?api_key=${site.apiKey}&startDate=${todayDate}&endDate=${todayDate}&timeUnit=DAY`;
+          let options = {
+            url: apiUrl,
             type: "GET",
             contentType: "application/json",
-            dataType: "jsonp",
             success: function (data) {
               const todayProduction = data.energy.values[0].value;
               const todayProd =
@@ -312,14 +340,21 @@
               //update html
               $(`div#${meter} #TODAY_PROD`).html(todayProd);
             },
-          });
+          };
+          if (!IS_LOCAL_API) {
+            options.dataType = "jsonp";
+          }
+          $.ajax(options);
 
-          $.ajax({
-            url: `${SOLAR_ARI_URL}/${site.siteId}/timeFrameEnergy?api_key=${site.apiKey}&startDate=${start_date}&endDate=${tomorrowDate}`,
+          apiUrl = IS_LOCAL_API
+            ? `${API_URL}/solar/energy/timeframe?site=${meter}&start_date=${start_date}&end_date=${tomorrowDate}`
+            : `${SOLAR_ARI_URL}/${site.siteId}/timeFrameEnergy?api_key=${site.apiKey}&startDate=${start_date}&endDate=${tomorrowDate}`;
+          options = {
+            url: apiUrl,
             type: "GET",
             contentType: "application/json",
-            dataType: "jsonp",
             success: function (data) {
+              console.log("data timeframe", data);
               const lifetimeProduction =
                 data.timeFrameEnergy.endLifetimeEnergy.energy;
               const lifetimeProd =
@@ -329,7 +364,11 @@
               //update html
               $(`div#${meter} #LIFETIME_PROD`).html(lifetimeProd);
             },
-          });
+          };
+          if (!IS_LOCAL_API) {
+            options.dataType = "jsonp";
+          }
+          $.ajax(options);
         });
       };
 
