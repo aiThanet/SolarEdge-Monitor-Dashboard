@@ -196,7 +196,6 @@
             type: "GET",
             contentType: "application/json",
             success: function (data) {
-              console.log("data", data);
               const powerDetails = data.powerDetails;
               const unit = powerDetails.unit.toUpperCase();
               const meters = powerDetails.meters;
@@ -325,6 +324,12 @@
           const meter = site.meter;
           const todayDate = moment().format("YYYY-MM-DD");
           const tomorrowDate = moment().add(1, "days").format("YYYY-MM-DD");
+          const yesterdayDate = moment()
+            .subtract(1, "days")
+            .format("YYYY-MM-DD");
+          const prevWeekDate = moment()
+            .subtract(7, "days")
+            .format("YYYY-MM-DD");
           //call api
           let apiUrl = IS_LOCAL_API
             ? `${API_URL}/solar/energy?site=${meter}&start_date=${todayDate}&end_date=${todayDate}&time_unit=DAY`
@@ -349,6 +354,52 @@
           $.ajax(options);
 
           apiUrl = IS_LOCAL_API
+            ? `${API_URL}/solar/energy?site=${meter}&start_date=${yesterdayDate}&end_date=${yesterdayDate}&time_unit=DAY`
+            : `${SOLAR_ARI_URL}/${site.siteId}/energy?api_key=${site.apiKey}&startDate=${yesterdayDate}&endDate=${yesterdayDate}&timeUnit=DAY`;
+          options = {
+            url: apiUrl,
+            type: "GET",
+            contentType: "application/json",
+            success: function (data) {
+              const yesterdayProduction = data.energy.values[0].value;
+              const yesterdayProd =
+                yesterdayProduction > 1000000
+                  ? (yesterdayProduction / 1000000).toFixed(2) + " MWh"
+                  : (yesterdayProduction / 1000).toFixed(2) + " kWh";
+              //update html
+              $(`div#${meter} #YESTERDAY_PROD`).html(yesterdayProd);
+            },
+          };
+          if (!IS_LOCAL_API) {
+            options.dataType = "jsonp";
+          }
+          $.ajax(options);
+
+          apiUrl = IS_LOCAL_API
+            ? `${API_URL}/solar/energy/timeframe?site=${meter}&start_date=${prevWeekDate}&end_date=${tomorrowDate}`
+            : `${SOLAR_ARI_URL}/${site.siteId}/timeFrameEnergy?api_key=${site.apiKey}&startDate=${prevWeekDate}&endDate=${tomorrowDate}`;
+          options = {
+            url: apiUrl,
+            type: "GET",
+            contentType: "application/json",
+            success: function (data) {
+              const prevWeekProduction =
+                data.timeFrameEnergy.endLifetimeEnergy.energy -
+                data.timeFrameEnergy.startLifetimeEnergy.energy;
+              const prevWeekProd =
+                prevWeekProduction > 1000000
+                  ? (prevWeekProduction / 1000000).toFixed(2) + " MWh"
+                  : (prevWeekProduction / 1000).toFixed(2) + " kWh";
+              //update html
+              $(`div#${meter} #PREVWEEK_PROD`).html(prevWeekProd);
+            },
+          };
+          if (!IS_LOCAL_API) {
+            options.dataType = "jsonp";
+          }
+          $.ajax(options);
+
+          apiUrl = IS_LOCAL_API
             ? `${API_URL}/solar/energy/timeframe?site=${meter}&start_date=${start_date}&end_date=${tomorrowDate}`
             : `${SOLAR_ARI_URL}/${site.siteId}/timeFrameEnergy?api_key=${site.apiKey}&startDate=${start_date}&endDate=${tomorrowDate}`;
           options = {
@@ -356,7 +407,6 @@
             type: "GET",
             contentType: "application/json",
             success: function (data) {
-              console.log("data timeframe", data);
               const lifetimeProduction =
                 data.timeFrameEnergy.endLifetimeEnergy.energy;
               const lifetimeProd =
@@ -460,51 +510,104 @@
               </div>
               <div class="col-12 mt-3">
                 <div class="row text-start">
-                  <div class="col-6">
+                  <div class="col-8">
                     <div class="row">
                       <div class="col-12 bg-success border border-dark-subtle">
                         <h5 class="my-1 px-2 py-1 text-white text-center">
                           ปริมาณการผลิต
                         </h5>
                       </div>
-                      <div class="col-12 border border-dark-subtle d-flex">
-                        <div class="d-flex align-self-center py-2">
-                          <img
-                            src="./calendar-today-outline.svg"
-                            class="img-fluid"
-                            alt="today-prod"
-                            style="width: 50px; height: 50px"
-                          />
+                      <div class="row col-12 mx-0 px-0">
+                        <div class="col-6 border border-dark-subtle d-flex">
+                          <div class="d-flex align-self-center py-2">
+                            <img
+                              src="./calendar-today-outline.svg"
+                              class="img-fluid"
+                              alt="today-prod"
+                              style="width: 50px; height: 50px"
+                            />
+                          </div>
+                          <div
+                            class="d-flex flex-column align-self-center ms-2"
+                          >
+                            <h5 class="mt-1 mb-0 py-1">ผลผลิตของวันนี้</h5>
+                            <h5
+                              class="mb-1 fw-bold text-success"
+                              id="TODAY_PROD"
+                            >
+                              0 kWh
+                            </h5>
+                          </div>
                         </div>
-                        <div class="d-flex flex-column align-self-center ms-2">
-                          <h5 class="mt-1 mb-0 py-1">ผลิตผลของวันนี้</h5>
-                          <h5 class="mb-1 fw-bold text-success" id="TODAY_PROD">
-                            0 kWh
-                          </h5>
+                        <div class="col-6 border border-dark-subtle d-flex">
+                          <div class="d-flex align-self-center py-2">
+                            <img
+                              src="./calendar-arrow-left.svg"
+                              class="img-fluid"
+                              alt="today-prod"
+                              style="width: 50px; height: 50px"
+                            />
+                          </div>
+                          <div
+                            class="d-flex flex-column align-self-center ms-2"
+                          >
+                            <h5 class="mt-1 mb-0 py-1">ผลผลิตของเมื่อวาน</h5>
+                            <h5
+                              class="mb-1 fw-bold text-success"
+                              id="YESTERDAY_PROD"
+                            >
+                              0 kWh
+                            </h5>
+                          </div>
                         </div>
                       </div>
-                      <div class="col-12 border border-dark-subtle d-flex">
-                        <div class="d-flex align-self-center py-2">
-                          <img
-                            src="./all-inclusive-box.svg"
-                            class="img-fluid"
-                            alt="life-time-prod"
-                            style="width: 50px; height: 50px"
-                          />
-                        </div>
-                        <div class="d-flex flex-column align-self-center ms-2">
-                          <h5 class="mt-1 mb-0 py-1">ผลิตผลทั้งหมด</h5>
-                          <h5
-                            class="mb-1 fw-bold text-success"
-                            id="LIFETIME_PROD"
+                      <div class="row col-12 mx-0 px-0">
+                        <div class="col-6 border border-dark-subtle d-flex">
+                          <div class="d-flex align-self-center py-2">
+                            <img
+                              src="./calendar-week.svg"
+                              class="img-fluid"
+                              alt="life-time-prod"
+                              style="width: 50px; height: 50px"
+                            />
+                          </div>
+                          <div
+                            class="d-flex flex-column align-self-center ms-2"
                           >
-                            0 kWh
-                          </h5>
+                            <h5 class="mt-1 mb-0 py-1">ผลผลิต7วันย้อนหลัง</h5>
+                            <h5
+                              class="mb-1 fw-bold text-success"
+                              id="PREVWEEK_PROD"
+                            >
+                              0 kWh
+                            </h5>
+                          </div>
+                        </div>
+                        <div class="col-6 border border-dark-subtle d-flex">
+                          <div class="d-flex align-self-center py-2">
+                            <img
+                              src="./all-inclusive-box.svg"
+                              class="img-fluid"
+                              alt="life-time-prod"
+                              style="width: 50px; height: 50px"
+                            />
+                          </div>
+                          <div
+                            class="d-flex flex-column align-self-center ms-2"
+                          >
+                            <h5 class="mt-1 mb-0 py-1">ผลผลิตทั้งหมด</h5>
+                            <h5
+                              class="mb-1 fw-bold text-success"
+                              id="LIFETIME_PROD"
+                            >
+                              0 kWh
+                            </h5>
+                          </div>
                         </div>
                       </div>
                     </div>
                   </div>
-                  <div class="col-6">
+                  <div class="col-4">
                     <div class="row">
                       <div class="col-12 bg-success border border-dark-subtle">
                         <h5 class="my-1 px-2 py-1 text-white text-center">
@@ -633,51 +736,104 @@
               </div>
               <div class="col-12 mt-3">
                 <div class="row text-start">
-                  <div class="col-6">
+                  <div class="col-8">
                     <div class="row">
                       <div class="col-12 bg-success border border-dark-subtle">
                         <h5 class="my-1 px-2 py-1 text-white text-center">
                           ปริมาณการผลิต
                         </h5>
                       </div>
-                      <div class="col-12 border border-dark-subtle d-flex">
-                        <div class="d-flex align-self-center py-2">
-                          <img
-                            src="./calendar-today-outline.svg"
-                            class="img-fluid"
-                            alt="today-prod"
-                            style="width: 50px; height: 50px"
-                          />
+                      <div class="row col-12 mx-0 px-0">
+                        <div class="col-6 border border-dark-subtle d-flex">
+                          <div class="d-flex align-self-center py-2">
+                            <img
+                              src="./calendar-today-outline.svg"
+                              class="img-fluid"
+                              alt="today-prod"
+                              style="width: 50px; height: 50px"
+                            />
+                          </div>
+                          <div
+                            class="d-flex flex-column align-self-center ms-2"
+                          >
+                            <h5 class="mt-1 mb-0 py-1">ผลผลิตของวันนี้</h5>
+                            <h5
+                              class="mb-1 fw-bold text-success"
+                              id="TODAY_PROD"
+                            >
+                              0 kWh
+                            </h5>
+                          </div>
                         </div>
-                        <div class="d-flex flex-column align-self-center ms-2">
-                          <h5 class="mt-1 mb-0 py-1">ผลิตผลของวันนี้</h5>
-                          <h5 class="mb-1 fw-bold text-success" id="TODAY_PROD">
-                            0 kWh
-                          </h5>
+                        <div class="col-6 border border-dark-subtle d-flex">
+                          <div class="d-flex align-self-center py-2">
+                            <img
+                              src="./calendar-arrow-left.svg"
+                              class="img-fluid"
+                              alt="today-prod"
+                              style="width: 50px; height: 50px"
+                            />
+                          </div>
+                          <div
+                            class="d-flex flex-column align-self-center ms-2"
+                          >
+                            <h5 class="mt-1 mb-0 py-1">ผลผลิตของเมื่อวาน</h5>
+                            <h5
+                              class="mb-1 fw-bold text-success"
+                              id="YESTERDAY_PROD"
+                            >
+                              0 kWh
+                            </h5>
+                          </div>
                         </div>
                       </div>
-                      <div class="col-12 border border-dark-subtle d-flex">
-                        <div class="d-flex align-self-center py-2">
-                          <img
-                            src="./all-inclusive-box.svg"
-                            class="img-fluid"
-                            alt="life-time-prod"
-                            style="width: 50px; height: 50px"
-                          />
-                        </div>
-                        <div class="d-flex flex-column align-self-center ms-2">
-                          <h5 class="mt-1 mb-0 py-1">ผลิตผลทั้งหมด</h5>
-                          <h5
-                            class="mb-1 fw-bold text-success"
-                            id="LIFETIME_PROD"
+                      <div class="row col-12 mx-0 px-0">
+                        <div class="col-6 border border-dark-subtle d-flex">
+                          <div class="d-flex align-self-center py-2">
+                            <img
+                              src="./calendar-week.svg"
+                              class="img-fluid"
+                              alt="life-time-prod"
+                              style="width: 50px; height: 50px"
+                            />
+                          </div>
+                          <div
+                            class="d-flex flex-column align-self-center ms-2"
                           >
-                            0 kWh
-                          </h5>
+                            <h5 class="mt-1 mb-0 py-1">ผลผลิต7วันย้อนหลัง</h5>
+                            <h5
+                              class="mb-1 fw-bold text-success"
+                              id="PREVWEEK_PROD"
+                            >
+                              0 kWh
+                            </h5>
+                          </div>
+                        </div>
+                        <div class="col-6 border border-dark-subtle d-flex">
+                          <div class="d-flex align-self-center py-2">
+                            <img
+                              src="./all-inclusive-box.svg"
+                              class="img-fluid"
+                              alt="life-time-prod"
+                              style="width: 50px; height: 50px"
+                            />
+                          </div>
+                          <div
+                            class="d-flex flex-column align-self-center ms-2"
+                          >
+                            <h5 class="mt-1 mb-0 py-1">ผลผลิตทั้งหมด</h5>
+                            <h5
+                              class="mb-1 fw-bold text-success"
+                              id="LIFETIME_PROD"
+                            >
+                              0 kWh
+                            </h5>
+                          </div>
                         </div>
                       </div>
                     </div>
                   </div>
-                  <div class="col-6">
+                  <div class="col-4">
                     <div class="row">
                       <div class="col-12 bg-success border border-dark-subtle">
                         <h5 class="my-1 px-2 py-1 text-white text-center">
