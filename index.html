@@ -400,15 +400,18 @@
           $.ajax(options);
 
           apiUrl = IS_LOCAL_API
-            ? `${API_URL}/solar/energy/timeframe?site=${meter}&start_date=${start_date}&end_date=${tomorrowDate}`
-            : `${SOLAR_ARI_URL}/${site.siteId}/timeFrameEnergy?api_key=${site.apiKey}&startDate=${start_date}&endDate=${tomorrowDate}`;
+            ? `${API_URL}/solar/energy?site=${meter}&start_date=${start_date}&end_date=${tomorrowDate}&time_unit=YEAR`
+            : `${SOLAR_ARI_URL}/${site.siteId}/energy?api_key=${site.apiKey}&startDate=${start_date}&endDate=${tomorrowDate}&timeUnit=YEAR`;
+
           options = {
             url: apiUrl,
             type: "GET",
             contentType: "application/json",
             success: function (data) {
-              const lifetimeProduction =
-                data.timeFrameEnergy.endLifetimeEnergy.energy;
+              const yearlyProd = data.energy.values || [];
+              const lifetimeProduction = yearlyProd.reduce((acc, curr) => {
+                return acc + (curr.value || 0);
+              }, 0);
               const lifetimeProd =
                 lifetimeProduction > 1000000
                   ? (lifetimeProduction / 1000000).toFixed(2) + " MWh"
