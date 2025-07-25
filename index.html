@@ -52,7 +52,7 @@
 
       setInterval(() => {
         updatePowerFlow();
-      }, 10 * 1000);
+      }, 15 * 1000);
 
       setInterval(() => {
         updateChart();
@@ -74,6 +74,7 @@
             ? `${API_URL}/solar/current?site=${meter}`
             : `${SOLAR_ARI_URL}/${site.siteId}/currentPowerFlow?api_key=${site.apiKey}`;
           const options = {
+            timeout: 3000,
             url: apiUrl,
             type: "GET",
             contentType: "application/json",
@@ -120,6 +121,7 @@
             ? `${API_URL}/solar/benefit?site=${meter}`
             : `${SOLAR_ARI_URL}/${site.siteId}/envBenefits?api_key=${site.apiKey}&systemUnits=Metrics`;
           const options = {
+            timeout: 3000,
             url: apiUrl,
             type: "GET",
             contentType: "application/json",
@@ -167,6 +169,7 @@
             ? `${API_URL}/solar/powerDetails?site=${meter}&start_time=${yesterday_start_time}&end_time=${yesterday_end_time}`
             : `${SOLAR_ARI_URL}/${site.siteId}/powerDetails?api_key=${site.apiKey}&startTime=${yesterday_start_time}&endTime=${yesterday_end_time}`;
           let options = {
+            timeout: 3000,
             url: apiUrl,
             type: "GET",
             contentType: "application/json",
@@ -192,13 +195,15 @@
             ? `${API_URL}/solar/powerDetails?site=${meter}&start_time=${start_time}&end_time=${end_time}`
             : `${SOLAR_ARI_URL}/${site.siteId}/powerDetails?api_key=${site.apiKey}&startTime=${start_time}&endTime=${end_time}`;
           options = {
+            timeout: 3000,
             url: apiUrl,
             type: "GET",
             contentType: "application/json",
             success: function (data) {
               const powerDetails = data.powerDetails;
-              const unit = powerDetails.unit.toUpperCase();
-              const meters = powerDetails.meters;
+              const unit = (powerDetails?.unit || "").toUpperCase();
+              const meters =
+                powerDetails && powerDetails.meters ? powerDetails.meters : [];
               let dates = [];
               let consumption = [];
               let production = [];
@@ -335,6 +340,7 @@
             ? `${API_URL}/solar/energy?site=${meter}&start_date=${todayDate}&end_date=${todayDate}&time_unit=DAY`
             : `${SOLAR_ARI_URL}/${site.siteId}/energy?api_key=${site.apiKey}&startDate=${todayDate}&endDate=${todayDate}&timeUnit=DAY`;
           let options = {
+            timeout: 3000,
             url: apiUrl,
             type: "GET",
             contentType: "application/json",
@@ -357,6 +363,7 @@
             ? `${API_URL}/solar/energy?site=${meter}&start_date=${yesterdayDate}&end_date=${yesterdayDate}&time_unit=DAY`
             : `${SOLAR_ARI_URL}/${site.siteId}/energy?api_key=${site.apiKey}&startDate=${yesterdayDate}&endDate=${yesterdayDate}&timeUnit=DAY`;
           options = {
+            timeout: 3000,
             url: apiUrl,
             type: "GET",
             contentType: "application/json",
@@ -384,8 +391,8 @@
             contentType: "application/json",
             success: function (data) {
               const prevWeekProduction =
-                data.timeFrameEnergy.endLifetimeEnergy.energy -
-                data.timeFrameEnergy.startLifetimeEnergy.energy;
+                (data.timeFrameEnergy?.endLifetimeEnergy?.energy || 0) -
+                (data.timeFrameEnergy?.startLifetimeEnergy?.energy || 0);
               const prevWeekProd =
                 prevWeekProduction > 1000000
                   ? (prevWeekProduction / 1000000).toFixed(2) + " MWh"
@@ -404,6 +411,7 @@
             : `${SOLAR_ARI_URL}/${site.siteId}/energy?api_key=${site.apiKey}&startDate=${start_date}&endDate=${tomorrowDate}&timeUnit=YEAR`;
 
           options = {
+            timeout: 3000,
             url: apiUrl,
             type: "GET",
             contentType: "application/json",
